@@ -17,7 +17,7 @@ spec:
     metadata:
       labels:
         app: quarkus-memory-leak-app
-        version: "1.0.0"
+        version: "1.0.1"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
