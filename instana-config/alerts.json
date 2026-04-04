@@ -1,0 +1,166 @@
+{
+  "alerts": [
+    {
+      "name": "Memory Leak Detection - High Memory Usage",
+      "description": "Triggers when JVM heap memory usage exceeds 80% for more than 5 minutes",
+      "severity": "warning",
+      "enabled": true,
+      "triggerConditions": {
+        "metric": "jvm.memory.heap.used",
+        "operator": "greaterThan",
+        "threshold": 80,
+        "unit": "percent",
+        "duration": 300,
+        "evaluationWindow": 60
+      },
+      "scope": {
+        "applicationName": "quarkus-memory-leak-app",
+        "tags": {
+          "app": "quarkus-memory-leak-app"
+        }
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "webhookName": "bob-ai-agent"
+        }
+      ],
+      "metadata": {
+        "category": "memory",
+        "autoRemediation": true,
+        "expectedFix": "Remove static modifier from LEAKED_MEMORY collection"
+      }
+    },
+    {
+      "name": "Memory Leak Detection - Critical Memory Usage",
+      "description": "Triggers when JVM heap memory usage exceeds 90% indicating imminent OutOfMemoryError",
+      "severity": "critical",
+      "enabled": true,
+      "triggerConditions": {
+        "metric": "jvm.memory.heap.used",
+        "operator": "greaterThan",
+        "threshold": 90,
+        "unit": "percent",
+        "duration": 120,
+        "evaluationWindow": 30
+      },
+      "scope": {
+        "applicationName": "quarkus-memory-leak-app",
+        "tags": {
+          "app": "quarkus-memory-leak-app"
+        }
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "webhookName": "bob-ai-agent",
+          "priority": "high"
+        }
+      ],
+      "metadata": {
+        "category": "memory",
+        "autoRemediation": true,
+        "urgency": "immediate"
+      }
+    },
+    {
+      "name": "Garbage Collection Pressure",
+      "description": "Detects excessive garbage collection activity indicating memory pressure",
+      "severity": "warning",
+      "enabled": true,
+      "triggerConditions": {
+        "metric": "jvm.gc.time",
+        "operator": "greaterThan",
+        "threshold": 1000,
+        "unit": "milliseconds",
+        "duration": 300,
+        "evaluationWindow": 60
+      },
+      "scope": {
+        "applicationName": "quarkus-memory-leak-app"
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "webhookName": "bob-ai-agent"
+        }
+      ],
+      "metadata": {
+        "category": "performance",
+        "relatedTo": "memory-leak"
+      }
+    },
+    {
+      "name": "Memory Leak Pattern Detection",
+      "description": "Detects continuous memory growth pattern indicating a memory leak",
+      "severity": "warning",
+      "enabled": true,
+      "triggerConditions": {
+        "metric": "jvm.memory.heap.used",
+        "operator": "increasingTrend",
+        "threshold": 10,
+        "unit": "percent",
+        "duration": 600,
+        "evaluationWindow": 120
+      },
+      "scope": {
+        "applicationName": "quarkus-memory-leak-app"
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "webhookName": "bob-ai-agent"
+        }
+      ],
+      "metadata": {
+        "category": "memory",
+        "autoRemediation": true,
+        "pattern": "continuous-growth"
+      }
+    },
+    {
+      "name": "Application Error Rate Spike",
+      "description": "Detects increased error rates that may be related to memory issues",
+      "severity": "warning",
+      "enabled": true,
+      "triggerConditions": {
+        "metric": "errors.rate",
+        "operator": "greaterThan",
+        "threshold": 5,
+        "unit": "percent",
+        "duration": 180,
+        "evaluationWindow": 60
+      },
+      "scope": {
+        "applicationName": "quarkus-memory-leak-app"
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "webhookName": "bob-ai-agent"
+        }
+      ],
+      "metadata": {
+        "category": "errors",
+        "correlateWith": "memory-metrics"
+      }
+    }
+  ],
+  "webhookConfiguration": {
+    "bob-ai-agent": {
+      "url": "http://bob-agent.demo-namespace.svc.cluster.local:3000/webhook/instana",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Webhook-Secret": "${BOB_WEBHOOK_SECRET}",
+        "X-Alert-Source": "instana"
+      },
+      "retryPolicy": {
+        "maxRetries": 3,
+        "retryDelay": 5000,
+        "backoffMultiplier": 2
+      },
+      "timeout": 30000
+    }
+  }
+}

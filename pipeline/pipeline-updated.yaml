@@ -1,0 +1,156 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: quarkus-memory-leak-app-pipeline
+  namespace: demo-namespace
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+      default: https://github.com/luisbazo/autonomous-remediation-demo.git
+    - name: git-revision
+      type: string
+      description: Git revision to build
+      default: main
+    - name: image-name
+      type: string
+      description: Container image name
+      default: image-registry.openshift-image-registry.svc:5000/demo-namespace/quarkus-memory-leak-app
+    - name: image-tag
+      type: string
+      description: Container image tag
+      default: latest
+  
+  workspaces:
+    - name: shared-workspace
+      description: Workspace for source code and build artifacts
+    - name: maven-settings
+      description: Maven settings
+  
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+    
+    - name: build-application
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
+      runAfter:
+        - fetch-repository
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-settings
+          workspace: maven-settings
+      params:
+        - name: GOALS
+          value:
+            - clean
+            - package
+            - -DskipTests
+        - name: CONTEXT_DIR
+          value: quarkus-app
+    
+    - name: run-tests
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
+      runAfter:
+        - build-application
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-settings
+          workspace: maven-settings
+      params:
+        - name: GOALS
+          value:
+            - test
+        - name: CONTEXT_DIR
+          value: quarkus-app
+    
+    - name: build-and-push-image
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      runAfter:
+        - run-tests
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: IMAGE
+          value: $(params.image-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./quarkus-app/Dockerfile
+        - name: CONTEXT
+          value: ./quarkus-app
+        - name: TLSVERIFY
+          value: "false"
+    
+    - name: update-gitops-repo
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-cli
+          - name: namespace
+            value: openshift-pipelines
+      runAfter:
+        - build-and-push-image
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: GIT_USER_NAME
+          value: "Bob AI Agent"
+        - name: GIT_USER_EMAIL
+          value: "bob@example.com"
+        - name: GIT_SCRIPT
+          value: |
+            cd k8s/base
+            sed -i "s|image:.*|image: $(params.image-name):$(params.image-tag)|g" deployment.yaml
+            git add .
+            git commit -m "Update image to $(params.image-tag)" || echo "No changes"
+            git push origin main || echo "Push failed"
+
+# Made with Bob

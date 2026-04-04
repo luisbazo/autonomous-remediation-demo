@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bob-ai-agent
+  labels:
+    app: bob-ai-agent
+    app.kubernetes.io/name: bob-ai-agent
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/part-of: autonomous-remediation-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bob-ai-agent
+  template:
+    metadata:
+      labels:
+        app: bob-ai-agent
+    spec:
+      containers:
+      - name: bob-ai-agent
+        image: image-registry.openshift-image-registry.svc:5000/demo-namespace/bob-ai-agent:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NODE_ENV
+          value: "production"
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: github-token
+        - name: GITHUB_OWNER
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: github-owner
+        - name: GITHUB_REPO
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: github-repo
+        - name: INSTANA_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: instana-api-token
+        - name: INSTANA_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: instana-base-url
+        - name: OPENSHIFT_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: openshift-api-url
+        - name: OPENSHIFT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bob-secrets
+              key: openshift-token
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+# Made with Bob

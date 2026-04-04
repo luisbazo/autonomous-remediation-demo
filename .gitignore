@@ -1,0 +1,33 @@
+# Environment variables
+.env
+.bob/mcp.json
+
+# Node modules
+node_modules/
+*/node_modules/
+
+# Build outputs
+build/
+dist/
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.swp
+*~

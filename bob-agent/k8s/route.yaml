@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bob-ai-agent
+  labels:
+    app: bob-ai-agent
+spec:
+  to:
+    kind: Service
+    name: bob-ai-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+# Made with Bob

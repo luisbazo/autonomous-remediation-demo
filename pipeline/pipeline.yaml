@@ -1,0 +1,148 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: quarkus-memory-leak-app-pipeline
+  namespace: demo-namespace
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+      default: https://github.com/YOUR_USERNAME/autonomous-remediation-demo.git
+    - name: git-revision
+      type: string
+      description: Git revision to build
+      default: main
+    - name: image-name
+      type: string
+      description: Container image name
+      default: quay.io/demo/quarkus-memory-leak-app
+    - name: image-tag
+      type: string
+      description: Container image tag
+      default: latest
+  
+  workspaces:
+    - name: shared-workspace
+      description: Workspace for source code and build artifacts
+    - name: maven-settings
+      description: Maven settings
+  
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+    
+    - name: build-application
+      taskRef:
+        name: maven
+        kind: ClusterTask
+      runAfter:
+        - fetch-repository
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-settings
+          workspace: maven-settings
+      params:
+        - name: GOALS
+          value:
+            - clean
+            - package
+            - -DskipTests
+        - name: CONTEXT_DIR
+          value: quarkus-app
+    
+    - name: run-tests
+      taskRef:
+        name: maven
+        kind: ClusterTask
+      runAfter:
+        - build-application
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-settings
+          workspace: maven-settings
+      params:
+        - name: GOALS
+          value:
+            - test
+        - name: CONTEXT_DIR
+          value: quarkus-app
+    
+    - name: build-image
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      runAfter:
+        - run-tests
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: IMAGE
+          value: $(params.image-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./quarkus-app/src/main/docker/Dockerfile.jvm
+        - name: CONTEXT
+          value: ./quarkus-app
+        - name: TLSVERIFY
+          value: "false"
+    
+    - name: push-image
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      runAfter:
+        - build-image
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: IMAGE
+          value: $(params.image-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./quarkus-app/src/main/docker/Dockerfile.jvm
+        - name: CONTEXT
+          value: ./quarkus-app
+        - name: TLSVERIFY
+          value: "false"
+        - name: PUSH_EXTRA_ARGS
+          value:
+            - --push
+    
+    - name: update-gitops-repo
+      taskRef:
+        name: git-cli
+        kind: ClusterTask
+      runAfter:
+        - push-image
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: GIT_USER_NAME
+          value: "Bob AI Agent"
+        - name: GIT_USER_EMAIL
+          value: "bob@example.com"
+        - name: GIT_SCRIPT
+          value: |
+            cd gitops/overlays/dev
+            kustomize edit set image $(params.image-name):$(params.image-tag)
+            git add .
+            git commit -m "Update image to $(params.image-tag)"
+            git push origin main
+
+# Made with Bob

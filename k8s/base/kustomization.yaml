@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: demo-namespace
+
+commonLabels:
+  app.kubernetes.io/part-of: autonomous-remediation-demo
+  app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - route.yaml
+
+images:
+  - name: quay.io/demo/quarkus-memory-leak-app
+    newTag: latest
+
+# Made with Bob

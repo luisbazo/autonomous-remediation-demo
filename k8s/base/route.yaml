@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: quarkus-memory-leak-app
+  labels:
+    app: quarkus-memory-leak-app
+    app.kubernetes.io/name: quarkus-memory-leak-app
+spec:
+  to:
+    kind: Service
+    name: quarkus-memory-leak-app
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+# Made with Bob

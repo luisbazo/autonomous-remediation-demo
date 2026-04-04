@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quarkus-memory-leak-app
+  labels:
+    app: quarkus-memory-leak-app
+    app.kubernetes.io/name: quarkus-memory-leak-app
+    app.kubernetes.io/version: "1.0.1"
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: autonomous-remediation-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-memory-leak-app
+  template:
+    metadata:
+      labels:
+        app: quarkus-memory-leak-app
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      containers:
+      - name: quarkus-memory-leak-app
+        image: image-registry.openshift-image-registry.svc:5000/demo-namespace/quarkus-memory-leak-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: JAVA_OPTS
+          value: "-Xmx512m -Xms256m -javaagent:/opt/instana/instana-agent.jar"
+        - name: INSTANA_AGENT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: instana-agent
+              key: key
+        - name: INSTANA_AGENT_ENDPOINT
+          value: "ingress-red-saas.instana.io"
+        - name: INSTANA_AGENT_ENDPOINT_PORT
+          value: "443"
+        - name: INSTANA_ZONE
+          value: "demo-zone"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /q/health/started
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 30
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
+# Made with Bob

@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: instana-agent-config
+  namespace: instana-agent
+data:
+  configuration.yaml: |
+    # Instana Agent Configuration
+    
+    # Agent Mode
+    com.instana.plugin.generic.hardware:
+      enabled: true
+      availability-zone: 'demo-zone'
+    
+    # Java Tracing Configuration
+    com.instana.plugin.javatrace:
+      instrumentation:
+        enabled: true
+        opentracing: true
+      
+    # Memory Monitoring
+    com.instana.plugin.process:
+      enabled: true
+      
+    # Custom Events and Alerts
+    com.instana.plugin.custom.events:
+      enabled: true
+      
+    # HTTP Monitoring
+    com.instana.plugin.http:
+      enabled: true
+      
+    # Kubernetes Monitoring
+    com.instana.plugin.kubernetes:
+      enabled: true
+      
+    # Application Monitoring
+    com.instana.plugin.application:
+      enabled: true
+      
+    # Memory Leak Detection
+    com.instana.plugin.memory:
+      enabled: true
+      leak-detection: true
+      threshold: 80
+      
+    # Webhook Configuration for Alerts
+    webhooks:
+      - name: "bob-ai-agent"
+        url: "http://bob-agent.demo-namespace.svc.cluster.local:3000/webhook/instana"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+          X-Webhook-Secret: "${BOB_WEBHOOK_SECRET}"
+        events:
+          - "incident.triggered"
+          - "incident.closed"
+          - "alert.triggered"
+          - "alert.closed"
+        filters:
+          - type: "memory"
+          - severity: "warning"
+          - severity: "critical"
+
+# Made with Bob

@@ -1,0 +1,25 @@
+{
+  "name": "instana-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Instana monitoring and observability",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "instana",
+    "monitoring",
+    "observability"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

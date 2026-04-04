@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "instana": {
+      "command": "node",
+      "args": [
+        "/path/to/instana-mcp-server/build/index.js"
+      ],
+      "env": {
+        "INSTANA_BASE_URL": "https://your-tenant.instana.io",
+        "INSTANA_API_TOKEN": "your-instana-api-token"
+      }
+    },
+    "ocp": {
+      "command": "node",
+      "args": [
+        "/path/to/ocp-server/build/index.js"
+      ],
+      "env": {
+        "OCP_API_URL": "https://api.your-cluster.com:6443",
+        "OCP_TOKEN": "your-ocp-token"
+      }
+    },
+    "github": {
+      "command": "node",
+      "args": [
+        "/path/to/github-mcp-server/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "your-github-token"
+      }
+    }
+  }
+}
