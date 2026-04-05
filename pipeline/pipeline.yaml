@@ -1,4 +1,4 @@
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: quarkus-memory-leak-app-pipeline
@@ -8,7 +8,7 @@ spec:
     - name: git-url
       type: string
       description: Git repository URL
-      default: https://github.com/YOUR_USERNAME/autonomous-remediation-demo.git
+      default: https://github.com/luisbazo/autonomous-remediation-demo.git
     - name: git-revision
       type: string
       description: Git revision to build
@@ -16,7 +16,7 @@ spec:
     - name: image-name
       type: string
       description: Container image name
-      default: quay.io/demo/quarkus-memory-leak-app
+      default: default-route-openshift-image-registry.apps.itz-74esdv.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app
     - name: image-tag
       type: string
       description: Container image tag
@@ -25,71 +25,89 @@ spec:
   workspaces:
     - name: shared-workspace
       description: Workspace for source code and build artifacts
-    - name: maven-settings
-      description: Maven settings
   
   tasks:
     - name: fetch-repository
       taskRef:
-        apiVersion: tekton.dev/v1beta1
-        name: git-clone
-        kind: ClusterTask
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
       workspaces:
         - name: output
           workspace: shared-workspace
       params:
-        - name: url
+        - name: URL
           value: $(params.git-url)
-        - name: revision
+        - name: REVISION
           value: $(params.git-revision)
-        - name: deleteExisting
+        - name: DELETE_EXISTING
           value: "true"
     
     - name: build-application
       taskRef:
-        apiVersion: tekton.dev/v1beta1
-        name: maven
-        kind: ClusterTask
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
       runAfter:
         - fetch-repository
       workspaces:
         - name: source
           workspace: shared-workspace
-        - name: maven-settings
-          workspace: maven-settings
       params:
         - name: GOALS
           value:
             - clean
             - package
             - -DskipTests
-        - name: CONTEXT_DIR
+        - name: SUBDIRECTORY
           value: quarkus-app
+        - name: MAVEN_MIRROR_URL
+          value: ""
     
     - name: run-tests
       taskRef:
-        apiVersion: tekton.dev/v1beta1
-        name: maven
-        kind: ClusterTask
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
       runAfter:
         - build-application
       workspaces:
         - name: source
           workspace: shared-workspace
-        - name: maven-settings
-          workspace: maven-settings
       params:
         - name: GOALS
           value:
             - test
-        - name: CONTEXT_DIR
+        - name: SUBDIRECTORY
           value: quarkus-app
+        - name: MAVEN_MIRROR_URL
+          value: ""
     
-    - name: build-image
+    - name: build-and-push-image
       taskRef:
-        apiVersion: tekton.dev/v1beta1
-        name: buildah
-        kind: ClusterTask
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
       runAfter:
         - run-tests
       workspaces:
@@ -99,34 +117,10 @@ spec:
         - name: IMAGE
           value: $(params.image-name):$(params.image-tag)
         - name: DOCKERFILE
-          value: ./quarkus-app/src/main/docker/Dockerfile.jvm
+          value: ./quarkus-app/Dockerfile
         - name: CONTEXT
           value: ./quarkus-app
         - name: TLSVERIFY
           value: "false"
-    
-    - name: push-image
-      taskRef:
-        apiVersion: tekton.dev/v1beta1
-        name: buildah
-        kind: ClusterTask
-      runAfter:
-        - build-image
-      workspaces:
-        - name: source
-          workspace: shared-workspace
-      params:
-        - name: IMAGE
-          value: $(params.image-name):$(params.image-tag)
-        - name: DOCKERFILE
-          value: ./quarkus-app/src/main/docker/Dockerfile.jvm
-        - name: CONTEXT
-          value: ./quarkus-app
-        - name: TLSVERIFY
-          value: "false"
-        - name: PUSH_EXTRA_ARGS
-          value:
-            - --push
-    
 
 # Made with Bob
