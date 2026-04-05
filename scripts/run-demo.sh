@@ -80,7 +80,7 @@ for i in {1..30}; do
     echo -ne "${BLUE}  Checking... ($i/30)\r${NC}"
     
     # Check if Bob agent has received an alert (check logs)
-    BOB_LOGS=$(oc logs deployment/bob-agent -n $OCP_NAMESPACE --tail=50 2>/dev/null || echo "")
+    BOB_LOGS=$(oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE --tail=50 2>/dev/null || echo "")
     
     if echo "$BOB_LOGS" | grep -q "Processing Instana alert"; then
         ALERT_DETECTED=true
@@ -95,7 +95,7 @@ if [ "$ALERT_DETECTED" = false ]; then
     echo -e "\n${YELLOW}⚠️  Alert not detected yet. This is normal - Instana may take longer to detect the pattern.${NC}"
     echo -e "${YELLOW}You can manually check:${NC}"
     echo -e "  - Instana UI: $INSTANA_BASE_URL"
-    echo -e "  - Bob logs: oc logs deployment/bob-agent -n $OCP_NAMESPACE -f"
+    echo -e "  - Bob logs: oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE -f"
 fi
 
 # Step 6: Monitor Bob's analysis
@@ -108,7 +108,7 @@ echo -e "  4. Generating a fix"
 echo -e "  5. Creating a pull request"
 
 echo -e "\n${BLUE}Tailing Bob agent logs (Ctrl+C to stop):${NC}"
-oc logs deployment/bob-agent -n $OCP_NAMESPACE -f &
+oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE -f &
 BOB_LOGS_PID=$!
 
 sleep 30
@@ -182,7 +182,7 @@ echo -e "  8. ⏳ Memory leak resolved automatically"
 
 echo -e "\n${YELLOW}Useful commands:${NC}"
 echo -e "  View application logs:  ${GREEN}oc logs deployment/quarkus-memory-leak-app -n $OCP_NAMESPACE -f${NC}"
-echo -e "  View Bob logs:          ${GREEN}oc logs deployment/bob-agent -n $OCP_NAMESPACE -f${NC}"
+echo -e "  View Bob logs:          ${GREEN}oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE -f${NC}"
 echo -e "  View Instana agent:     ${GREEN}oc logs daemonset/instana-agent -n instana-agent -f${NC}"
 echo -e "  Check memory stats:     ${GREEN}curl https://$APP_URL/api/memory-stats | jq${NC}"
 echo -e "  View GitHub PRs:        ${GREEN}$PR_URL${NC}"

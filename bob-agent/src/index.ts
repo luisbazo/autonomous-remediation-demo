@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Initialize Instana collector FIRST - must be before any other imports
+import '@instana/collector';
+
 import express, { Request, Response } from 'express';
 import { config } from 'dotenv';
 import { createLogger, format, transports } from 'winston';
@@ -22,27 +25,55 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console({
+      stderrLevels: ['error', 'warn'],
       format: format.combine(
-        format.colorize(),
-        format.simple()
+        format.timestamp(),
+        format.errors({ stack: true }),
+        format.json()
       )
-    }),
-    new transports.File({ filename: 'bob-agent-error.log', level: 'error' }),
-    new transports.File({ filename: 'bob-agent-combined.log' })
+    })
   ]
 });
 
+const originalInfo = logger.info.bind(logger);
+const originalWarn = logger.warn.bind(logger);
+const originalError = logger.error.bind(logger);
+
+logger.info = ((message: any, ...meta: any[]) => {
+  console.log(typeof message === 'string' ? message : JSON.stringify(message));
+  if (meta.length > 0) {
+    console.log(JSON.stringify(meta.length === 1 ? meta[0] : meta, null, 2));
+  }
+  return originalInfo(message, ...meta);
+}) as typeof logger.info;
+
+logger.warn = ((message: any, ...meta: any[]) => {
+  console.warn(typeof message === 'string' ? message : JSON.stringify(message));
+  if (meta.length > 0) {
+    console.warn(JSON.stringify(meta.length === 1 ? meta[0] : meta, null, 2));
+  }
+  return originalWarn(message, ...meta);
+}) as typeof logger.warn;
+
+logger.error = ((message: any, ...meta: any[]) => {
+  console.error(typeof message === 'string' ? message : JSON.stringify(message));
+  if (meta.length > 0) {
+    console.error(JSON.stringify(meta.length === 1 ? meta[0] : meta, null, 2));
+  }
+  return originalError(message, ...meta);
+}) as typeof logger.error;
+
 // Configuration
 const config_vars = {
-  port: parseInt(process.env.BOB_WEBHOOK_PORT || '3000'),
+  port: parseInt(process.env.BOB_WEBHOOK_PORT || process.env.PORT || '3000'),
   webhookSecret: process.env.BOB_WEBHOOK_SECRET || 'change_this_secret',
   instanaBaseUrl: process.env.INSTANA_BASE_URL || '',
   instanaApiToken: process.env.INSTANA_API_TOKEN || '',
   githubToken: process.env.GITHUB_TOKEN || '',
-  githubRepoOwner: process.env.GITHUB_REPO_OWNER || '',
-  githubRepoName: process.env.GITHUB_REPO_NAME || '',
-  ocpApiUrl: process.env.OCP_API_URL || '',
-  ocpToken: process.env.OCP_TOKEN || ''
+  githubRepoOwner: process.env.GITHUB_REPO_OWNER || process.env.GITHUB_OWNER || '',
+  githubRepoName: process.env.GITHUB_REPO_NAME || process.env.GITHUB_REPO || '',
+  ocpApiUrl: process.env.OCP_API_URL || process.env.OPENSHIFT_API_URL || '',
+  ocpToken: process.env.OCP_TOKEN || process.env.OPENSHIFT_TOKEN || ''
 };
 
 // Initialize components
@@ -80,32 +111,79 @@ app.get('/health', (req: Request, res: Response) => {
 // Instana webhook endpoint
 app.post('/webhook/instana', async (req: Request, res: Response) => {
   try {
+    // DEBUG: Log complete request details
+    logger.info('=== WEBHOOK REQUEST DEBUG START ===');
+    logger.info('Request Headers:', {
+      headers: JSON.stringify(req.headers, null, 2)
+    });
+    logger.info('Request Body (raw):', {
+      body: JSON.stringify(req.body, null, 2),
+      bodyType: typeof req.body,
+      bodyKeys: Object.keys(req.body || {}),
+      bodyLength: JSON.stringify(req.body).length
+    });
+    logger.info('=== WEBHOOK REQUEST DEBUG END ===');
+
     // Verify webhook secret
     const providedSecret = req.headers['x-webhook-secret'];
     if (providedSecret !== config_vars.webhookSecret) {
-      logger.warn('Invalid webhook secret received');
+      logger.warn('Invalid webhook secret received', {
+        providedSecret,
+        expectedSecret: config_vars.webhookSecret
+      });
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const issue = req.body?.issue || {};
+    const normalizedAlert = req.body?.issue ? {
+      id: issue.id,
+      severity: issue.severity >= 5 ? 'critical' : 'warning',
+      type: issue.metricName || issue.type || 'instana-issue',
+      title: issue.text || issue.metricName || 'Instana Issue',
+      description: issue.suggestion || issue.text || 'Instana issue received',
+      timestamp: issue.start || Date.now(),
+      application: {
+        name: issue.entityLabel || issue.entity || 'unknown',
+        id: issue.id
+      },
+      metrics: issue.metricName ? [{
+        name: issue.metricName,
+        value: parseFloat(issue.metricValue || '0'),
+        threshold: parseFloat(String(issue.memoryUsedPercentage || '').match(/\d+\.\d+\s*%?\s*>?=\s*(\d+\.\d+)/)?.[1] || '0')
+      }] : [],
+      metadata: {
+        link: issue.link,
+        entityType: issue.entityType,
+        zone: issue.zone,
+        fqdn: issue.fqdn,
+        service: issue.service,
+        relatedEntities: issue.relatedEntities,
+        rawIssue: issue
+      },
+      rawIssue: issue
+    } : req.body;
+
     logger.info('Received Instana alert webhook', {
-      alertId: req.body.id,
-      severity: req.body.severity,
-      type: req.body.type
+      alertId: normalizedAlert.id,
+      severity: normalizedAlert.severity,
+      type: normalizedAlert.type,
+      fullPayload: req.body,
+      normalizedAlert
     });
 
     // Acknowledge receipt immediately
     res.status(202).json({
       status: 'accepted',
       message: 'Alert received and processing started',
-      alertId: req.body.id
+      alertId: normalizedAlert.id
     });
 
     // Process alert asynchronously
-    alertHandler.handleAlert(req.body).catch(error => {
+    alertHandler.handleAlert(normalizedAlert).catch(error => {
       logger.error('Error processing alert', {
         error: error.message,
         stack: error.stack,
-        alertId: req.body.id
+        alertId: normalizedAlert.id
       });
     });
 

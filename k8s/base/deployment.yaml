@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: quarkus-memory-leak-app
-        image: image-registry.openshift-image-registry.svc:5000/demo-namespace/quarkus-memory-leak-app:latest
+        image: default-route-openshift-image-registry.apps.itz-74esdv.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

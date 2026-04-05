@@ -71,6 +71,14 @@ This project demonstrates an end-to-end autonomous remediation workflow where an
 - Node.js 18+ (for Bob agent)
 - Java 17+ and Maven (for Quarkus app)
 
+### 🚨 CRITICAL: Webhook Configuration
+
+**Before running the demo, you MUST configure the Instana webhook with authentication.**
+
+See **[FINAL_WEBHOOK_SETUP.md](FINAL_WEBHOOK_SETUP.md)** for complete step-by-step instructions.
+
+**Key Requirement:** The webhook requires a custom header `X-Webhook-Secret: demo-webhook-secret-2026`
+
 ### Step 1: Clone Repository
 
 ```bash

@@ -46,6 +46,10 @@ if ! command_exists mvn; then
     MISSING_DEPS+=("mvn (Maven)")
 fi
 
+if ! command_exists podman; then
+    MISSING_DEPS+=("podman")
+fi
+
 if [ ${#MISSING_DEPS[@]} -ne 0 ]; then
     echo -e "${RED}Missing required dependencies:${NC}"
     for dep in "${MISSING_DEPS[@]}"; do
@@ -60,6 +64,17 @@ echo -e "${GREEN}✓ All prerequisites met${NC}"
 echo -e "\n${YELLOW}Logging into OpenShift...${NC}"
 oc login --token=$OCP_TOKEN --server=$OCP_API_URL --insecure-skip-tls-verify=true
 echo -e "${GREEN}✓ Logged into OpenShift${NC}"
+
+# Configure external image registry endpoint
+REGISTRY_HOST=$(oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}' 2>/dev/null || true)
+if [ -z "$REGISTRY_HOST" ]; then
+    echo -e "${RED}Error: OpenShift image registry route is not exposed. Expose the default route in openshift-image-registry before running setup.${NC}"
+    exit 1
+fi
+
+echo -e "\n${YELLOW}Logging into OpenShift image registry...${NC}"
+oc whoami -t | podman login --username kubeadmin --password-stdin --tls-verify=false "$REGISTRY_HOST"
+echo -e "${GREEN}✓ Logged into image registry: $REGISTRY_HOST${NC}"
 
 # Create namespace
 echo -e "\n${YELLOW}Creating namespace: $OCP_NAMESPACE${NC}"
@@ -94,97 +109,32 @@ oc create secret generic github-token \
 
 echo -e "${GREEN}✓ Secrets created${NC}"
 
-# Deploy Instana agent
-echo -e "\n${YELLOW}Deploying Instana agent...${NC}"
-oc apply -f instana-config/agent-config.yaml -n instana-agent
-oc apply -f instana-config/agent-daemonset.yaml -n instana-agent
-echo -e "${GREEN}✓ Instana agent deployed${NC}"
-
-# Build and deploy Bob AI agent
+# Build and push Bob AI agent image
 echo -e "\n${YELLOW}Building Bob AI agent...${NC}"
 cd bob-agent
 npm install
 npm run build
+podman build --platform linux/amd64 -t bob-ai-agent:latest .
+podman tag bob-ai-agent:latest $REGISTRY_HOST/$OCP_NAMESPACE/bob-ai-agent:latest
+podman push --tls-verify=false $REGISTRY_HOST/$OCP_NAMESPACE/bob-ai-agent:latest
 cd ..
-echo -e "${GREEN}✓ Bob agent built${NC}"
+echo -e "${GREEN}✓ Bob agent image built and pushed${NC}"
 
 # Create Bob agent deployment
 echo -e "\n${YELLOW}Deploying Bob AI agent...${NC}"
-cat <<EOF | oc apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: bob-agent
-  namespace: $OCP_NAMESPACE
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: bob-agent
-  template:
-    metadata:
-      labels:
-        app: bob-agent
-    spec:
-      containers:
-      - name: bob-agent
-        image: node:18-alpine
-        command: ["node", "/app/dist/index.js"]
-        ports:
-        - containerPort: 3000
-        env:
-        - name: BOB_WEBHOOK_PORT
-          value: "3000"
-        - name: BOB_WEBHOOK_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: bob-webhook
-              key: secret
-        - name: INSTANA_BASE_URL
-          value: "$INSTANA_BASE_URL"
-        - name: INSTANA_API_TOKEN
-          value: "$INSTANA_API_TOKEN"
-        - name: GITHUB_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: github-token
-              key: token
-        - name: GITHUB_REPO_OWNER
-          value: "$GITHUB_REPO_OWNER"
-        - name: GITHUB_REPO_NAME
-          value: "$GITHUB_REPO_NAME"
-        - name: OCP_API_URL
-          value: "$OCP_API_URL"
-        - name: OCP_TOKEN
-          value: "$OCP_TOKEN"
-        volumeMounts:
-        - name: app-code
-          mountPath: /app
-      volumes:
-      - name: app-code
-        configMap:
-          name: bob-agent-code
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: bob-agent
-  namespace: $OCP_NAMESPACE
-spec:
-  selector:
-    app: bob-agent
-  ports:
-  - port: 3000
-    targetPort: 3000
-EOF
+oc apply -f bob-agent/k8s/service.yaml -n $OCP_NAMESPACE
+oc apply -f bob-agent/k8s/deployment.yaml -n $OCP_NAMESPACE
 echo -e "${GREEN}✓ Bob agent deployed${NC}"
 
-# Build Quarkus application
+# Build and push Quarkus application image
 echo -e "\n${YELLOW}Building Quarkus application...${NC}"
 cd quarkus-app
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
+podman build --platform linux/amd64 -t quarkus-memory-leak-app:latest .
+podman tag quarkus-memory-leak-app:latest $REGISTRY_HOST/$OCP_NAMESPACE/quarkus-memory-leak-app:latest
+podman push --tls-verify=false $REGISTRY_HOST/$OCP_NAMESPACE/quarkus-memory-leak-app:latest
 cd ..
-echo -e "${GREEN}✓ Quarkus application built${NC}"
+echo -e "${GREEN}✓ Quarkus application image built and pushed${NC}"
 
 # Deploy Quarkus application
 echo -e "\n${YELLOW}Deploying Quarkus application...${NC}"

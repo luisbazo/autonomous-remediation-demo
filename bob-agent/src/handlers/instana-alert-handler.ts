@@ -6,21 +6,22 @@ import { GitHubIntegration } from '../integrations/github-integration.js';
 
 export interface InstanaAlert {
   id: string;
-  severity: 'warning' | 'critical';
+  severity: 'warning' | 'critical' | string;
   type: string;
   title: string;
   description: string;
   timestamp: number;
   application?: {
     name: string;
-    id: string;
+    id?: string;
   };
   metrics?: {
     name: string;
     value: number;
-    threshold: number;
+    threshold?: number;
   }[];
   metadata?: Record<string, any>;
+  rawIssue?: Record<string, any>;
 }
 
 export interface AlertStats {
@@ -52,6 +53,17 @@ export class InstanaAlertHandler {
   async handleAlert(alert: InstanaAlert): Promise<void> {
     this.stats.totalAlertsReceived++;
     this.stats.lastAlertTimestamp = Date.now();
+
+    // Log the complete payload for debugging
+    //this.logger.info('=== INSTANA ALERT HANDLER - FULL PAYLOAD ===');
+    //this.logger.info('Complete Alert Payload:', {
+    //  fullPayload: JSON.stringify(alert, null, 2)
+    //});
+    //console.log('\n========================================');
+    //console.log('INSTANA ALERT - FULL PAYLOAD RECEIVED');
+    //console.log('========================================');
+    //console.log(JSON.stringify(alert, null, 2));
+    //console.log('========================================\n');
 
     this.logger.info('Processing Instana alert', {
       alertId: alert.id,
@@ -155,9 +167,10 @@ export class InstanaAlertHandler {
   }
 
   private isMemoryLeakAlert(alert: InstanaAlert): boolean {
-    const memoryKeywords = ['memory', 'heap', 'leak', 'oom', 'outofmemory'];
-    const alertText = `${alert.type} ${alert.title} ${alert.description}`.toLowerCase();
-    
+    const memoryKeywords = ['memory', 'heap', 'leak', 'oom', 'outofmemory', 'usedpercentage'];
+    const metricName = alert.metrics?.map(metric => metric.name).join(' ') || '';
+    const alertText = `${alert.type} ${alert.title} ${alert.description} ${metricName}`.toLowerCase();
+
     return memoryKeywords.some(keyword => alertText.includes(keyword));
   }
 
@@ -189,11 +202,14 @@ export class InstanaAlertHandler {
     alert: InstanaAlert,
     context: any
   ): Promise<string[]> {
-    // For this demo, we know the file with the memory leak
-    // In a real scenario, this would analyze stack traces and metrics
-    const files = [
-      'quarkus-app/src/main/java/com/ibm/demo/MemoryLeakResource.java'
-    ];
+    const relatedEntities = String(alert.metadata?.relatedEntities || '').toLowerCase();
+    const applicationName = String(alert.application?.name || '').toLowerCase();
+
+    // For this demo, map the provided Instana issue payload to the known leaking service
+    const files =
+      relatedEntities.includes('quarkus-memory-leak-app') || applicationName.includes('quarkus')
+        ? ['quarkus-app/src/main/java/com/ibm/demo/MemoryLeakResource.java']
+        : ['quarkus-app/src/main/java/com/ibm/demo/MemoryLeakResource.java'];
 
     this.logger.info('Identified affected files', {
       alertId: alert.id,
@@ -261,3 +277,4 @@ export class InstanaAlertHandler {
 }
 
 // Made with Bob
+

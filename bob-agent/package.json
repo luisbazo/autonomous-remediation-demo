@@ -21,6 +21,7 @@
   "author": "Bob AI",
   "license": "MIT",
   "dependencies": {
+    "@instana/collector": "^3.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.6.0",
     "express": "^4.18.2",

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: bob-ai-agent
-        image: image-registry.openshift-image-registry.svc:5000/demo-namespace/bob-ai-agent:latest
+        image: default-route-openshift-image-registry.apps.itz-74esdv.infra01-lb.fra02.techzone.ibm.com/demo-namespace/bob-ai-agent:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

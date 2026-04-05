@@ -16,6 +16,7 @@ https://bob-ai-agent-demo-namespace.apps.itz-74esdv.infra01-lb.fra02.techzone.ib
    - **URL**: (see above)
    - **Method**: POST
    - **Content-Type**: application/json
+   - **Custom Header**: `X-Webhook-Secret: demo-webhook-secret-2026` ⚠️ **REQUIRED**
 
 ## Quick Test
 
@@ -23,8 +24,11 @@ https://bob-ai-agent-demo-namespace.apps.itz-74esdv.infra01-lb.fra02.techzone.ib
 curl -X POST \
   https://bob-ai-agent-demo-namespace.apps.itz-74esdv.infra01-lb.fra02.techzone.ibm.com/webhook/instana \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: demo-webhook-secret-2026" \
   -d '{"test": "webhook", "timestamp": '$(date +%s)'}'
 ```
+
+**Expected Response:** HTTP 202 Accepted
 
 ## Verify Bob Agent
 
