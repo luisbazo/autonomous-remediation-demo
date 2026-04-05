@@ -42,7 +42,6 @@ public class MemoryLeakResource {
     @Path("/health")
     public Response health() {
         Map<String, Object> status = new HashMap<>();
-        // TODO: Implement size limit or periodic cleanup for status
         status.put("status", "UP");
         status.put("timestamp", System.currentTimeMillis());
         status.put("requestCount", requestCounter);
@@ -62,7 +61,6 @@ public class MemoryLeakResource {
         LOG.info("Processing normal request #" + requestCounter);
         
         Map<String, Object> response = new HashMap<>();
-        // TODO: Implement size limit or periodic cleanup for response
         response.put("message", "Normal operation");
         response.put("requestId", requestCounter);
         response.put("timestamp", System.currentTimeMillis());
@@ -100,7 +98,6 @@ public class MemoryLeakResource {
                 for (int j = 0; j < chunk.length; j += 1024) {
                     chunk[j] = (byte) (Math.random() * 255);
                 }
-                // TODO: Implement size limit or periodic cleanup for leakedData
                 leakedData.add(chunk);
             }
             
@@ -122,7 +119,6 @@ public class MemoryLeakResource {
         } catch (OutOfMemoryError e) {
             LOG.error("OUT OF MEMORY ERROR!", e);
             Map<String, Object> error = new HashMap<>();
-            // TODO: Implement size limit or periodic cleanup for error
             error.put("error", "OutOfMemoryError");
             error.put("message", "Heap exhausted - memory leak successful!");
             error.put("totalLeaks", LEAKED_MEMORY.size());
@@ -133,7 +129,6 @@ public class MemoryLeakResource {
     /**
      * Get memory statistics
      */
-    
     @GET
     @Path("/memory-stats")
     public Response getMemoryStats() {
@@ -144,7 +139,6 @@ public class MemoryLeakResource {
         long usedMemory = totalMemory - freeMemory;
         
         Map<String, Object> stats = new HashMap<>();
-        // TODO: Implement size limit or periodic cleanup for stats
         stats.put("maxMemoryMB", maxMemory / (1024 * 1024));
         stats.put("totalMemoryMB", totalMemory / (1024 * 1024));
         stats.put("usedMemoryMB", usedMemory / (1024 * 1024));
