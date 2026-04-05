@@ -107,6 +107,12 @@ oc create secret generic github-token \
     -n $OCP_NAMESPACE \
     --dry-run=client -o yaml | oc apply -f -
 
+# GitHub webhook secret for Tekton trigger
+oc create secret generic github-webhook-secret \
+    --from-literal=secret=$BOB_WEBHOOK_SECRET \
+    -n $OCP_NAMESPACE \
+    --dry-run=client -o yaml | oc apply -f -
+
 echo -e "${GREEN}✓ Secrets created${NC}"
 
 # Build and push Bob AI agent image
@@ -141,10 +147,11 @@ echo -e "\n${YELLOW}Deploying Quarkus application...${NC}"
 oc apply -k k8s/base -n $OCP_NAMESPACE
 echo -e "${GREEN}✓ Quarkus application deployed${NC}"
 
-# Install Tekton Pipelines (if not already installed)
+# Install Tekton Pipelines and Triggers
 echo -e "\n${YELLOW}Setting up Tekton Pipelines...${NC}"
 oc apply -f pipeline/pipeline.yaml -n $OCP_NAMESPACE
-echo -e "${GREEN}✓ Pipeline configured${NC}"
+oc apply -f pipeline/triggers.yaml -n $OCP_NAMESPACE
+echo -e "${GREEN}✓ Pipeline and triggers configured${NC}"
 
 # Install OpenShift GitOps (ArgoCD)
 echo -e "\n${YELLOW}Setting up GitOps...${NC}"
@@ -154,21 +161,28 @@ echo -e "${GREEN}✓ GitOps configured${NC}"
 # Wait for deployments
 echo -e "\n${YELLOW}Waiting for deployments to be ready...${NC}"
 oc wait --for=condition=available --timeout=300s deployment/quarkus-memory-leak-app -n $OCP_NAMESPACE
-oc wait --for=condition=available --timeout=300s deployment/bob-agent -n $OCP_NAMESPACE
+oc wait --for=condition=available --timeout=300s deployment/bob-ai-agent -n $OCP_NAMESPACE
 echo -e "${GREEN}✓ All deployments ready${NC}"
 
-# Get application URL
+# Get application and webhook URLs
 APP_URL=$(oc get route quarkus-memory-leak-app -n $OCP_NAMESPACE -o jsonpath='{.spec.host}')
+TEKTON_WEBHOOK_HOST=$(oc get route quarkus-memory-leak-app-listener -n $OCP_NAMESPACE -o jsonpath='{.spec.host}')
 
 echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo -e "\nApplication URL: ${YELLOW}https://$APP_URL${NC}"
 echo -e "Bob Agent: ${YELLOW}http://bob-agent.$OCP_NAMESPACE.svc.cluster.local:3000${NC}"
+echo -e "Tekton GitHub Webhook: ${YELLOW}https://$TEKTON_WEBHOOK_HOST${NC}"
+echo -e "GitHub Webhook Endpoint: ${YELLOW}https://$TEKTON_WEBHOOK_HOST${NC}"
 echo -e "\n${YELLOW}Next steps:${NC}"
 echo -e "1. Run the demo: ${GREEN}./scripts/run-demo.sh${NC}"
-echo -e "2. Monitor Instana: ${GREEN}$INSTANA_BASE_URL${NC}"
-echo -e "3. Check GitHub PRs: ${GREEN}https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/pulls${NC}"
+echo -e "2. Configure a GitHub webhook to: ${GREEN}https://$TEKTON_WEBHOOK_HOST${NC}"
+echo -e "3. Use content type: ${GREEN}application/json${NC}"
+echo -e "4. Use secret: ${GREEN}$BOB_WEBHOOK_SECRET${NC}"
+echo -e "5. Select the ${GREEN}Pushes${NC} event and target branch ${GREEN}main${NC}"
+echo -e "6. Monitor Instana: ${GREEN}$INSTANA_BASE_URL${NC}"
+echo -e "7. Check GitHub PRs: ${GREEN}https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/pulls${NC}"
 echo -e "\n${YELLOW}To trigger the memory leak manually:${NC}"
 echo -e "${GREEN}curl -X POST https://$APP_URL/api/trigger-leak?size=10${NC}"
 
