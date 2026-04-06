@@ -163,13 +163,13 @@ app.post('/webhook/instana', async (req: Request, res: Response) => {
       rawIssue: issue
     } : req.body;
 
-    logger.info('Received Instana alert webhook', {
-      alertId: normalizedAlert.id,
-      severity: normalizedAlert.severity,
-      type: normalizedAlert.type,
-      fullPayload: req.body,
-      normalizedAlert
-    });
+    //logger.info('Received Instana alert webhook', {
+    //  alertId: normalizedAlert.id,
+    //  severity: normalizedAlert.severity,
+    //  type: normalizedAlert.type,
+    //  fullPayload: req.body,
+    //  normalizedAlert
+    //});
 
     // Acknowledge receipt immediately
     res.status(202).json({
