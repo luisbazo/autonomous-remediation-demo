@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class MemoryLeakResource {
 
     private static final Logger LOG = Logger.getLogger(MemoryLeakResource.class);
