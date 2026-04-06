@@ -118,21 +118,65 @@ export class FixGenerator {
     const collectionMatch = originalLine.match(/(\w+)\s*=/);
     const collectionName = collectionMatch ? collectionMatch[1] : 'LEAKED_MEMORY';
     
-    // Find the line where .put() is called on this collection
+    // Detect collection type from declaration
+    const isMap = originalLine.includes('Map<') || originalLine.includes('HashMap') ||
+                  originalLine.includes('ConcurrentHashMap') || originalLine.includes('TreeMap');
+    const isList = originalLine.includes('List<') || originalLine.includes('ArrayList') ||
+                   originalLine.includes('LinkedList');
+    const isSet = originalLine.includes('Set<') || originalLine.includes('HashSet') ||
+                  originalLine.includes('TreeSet');
+    
+    // Find the line where items are added to this collection
+    const addPattern = isMap ? `${collectionName}.put(` : `${collectionName}.add(`;
+    
     for (let i = lineIndex; i < lines.length; i++) {
-      if (lines[i].includes(`${collectionName}.put(`)) {
+      if (lines[i].includes(addPattern)) {
         const putLineIndent = lines[i].match(/^\s*/)?.[0] || '            ';
         
-        // Add size check before the put operation
-        const sizeCheckCode = [
-          `${putLineIndent}// Implement size limit to prevent memory leak`,
-          `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
-          `${putLineIndent}    // Remove oldest entry when limit reached`,
-          `${putLineIndent}    String oldestKey = ${collectionName}.keySet().iterator().next();`,
-          `${putLineIndent}    ${collectionName}.remove(oldestKey);`,
-          `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit: " + oldestKey);`,
-          `${putLineIndent}}`
-        ];
+        // Generate appropriate cleanup code based on collection type
+        let sizeCheckCode: string[];
+        
+        if (isMap) {
+          sizeCheckCode = [
+            `${putLineIndent}// Implement size limit to prevent memory leak`,
+            `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
+            `${putLineIndent}    // Remove oldest entry when limit reached`,
+            `${putLineIndent}    String oldestKey = ${collectionName}.keySet().iterator().next();`,
+            `${putLineIndent}    ${collectionName}.remove(oldestKey);`,
+            `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit: " + oldestKey);`,
+            `${putLineIndent}}`
+          ];
+        } else if (isList) {
+          sizeCheckCode = [
+            `${putLineIndent}// Implement size limit to prevent memory leak`,
+            `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
+            `${putLineIndent}    // Remove oldest entry when limit reached`,
+            `${putLineIndent}    ${collectionName}.remove(0);`,
+            `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit");`,
+            `${putLineIndent}}`
+          ];
+        } else if (isSet) {
+          sizeCheckCode = [
+            `${putLineIndent}// Implement size limit to prevent memory leak`,
+            `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
+            `${putLineIndent}    // Remove oldest entry when limit reached`,
+            `${putLineIndent}    Object oldestItem = ${collectionName}.iterator().next();`,
+            `${putLineIndent}    ${collectionName}.remove(oldestItem);`,
+            `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit");`,
+            `${putLineIndent}}`
+          ];
+        } else {
+          // Generic collection
+          sizeCheckCode = [
+            `${putLineIndent}// Implement size limit to prevent memory leak`,
+            `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
+            `${putLineIndent}    // Remove oldest entry when limit reached`,
+            `${putLineIndent}    Object oldestItem = ${collectionName}.iterator().next();`,
+            `${putLineIndent}    ${collectionName}.remove(oldestItem);`,
+            `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit");`,
+            `${putLineIndent}}`
+          ];
+        }
         
         lines.splice(i, 0, ...sizeCheckCode);
         
@@ -212,18 +256,51 @@ export class FixGenerator {
 
     const indent = originalLine.match(/^\s*/)?.[0] || '        ';
     
-    // Add size check with automatic cleanup
-    const cleanupCode = [
-      `${indent}// Automatic cleanup to prevent unbounded growth`,
-      `${indent}if (${collectionName}.size() > 1000) {`,
-      `${indent}    // Keep only the most recent 500 entries`,
-      `${indent}    int toRemove = ${collectionName}.size() - 500;`,
-      `${indent}    ${collectionName}.keySet().stream()`,
-      `${indent}        .limit(toRemove)`,
-      `${indent}        .forEach(${collectionName}::remove);`,
-      `${indent}    LOG.info("Cleaned up " + toRemove + " old entries from ${collectionName}");`,
-      `${indent}}`
-    ];
+    // Detect collection type to generate appropriate cleanup code
+    const isMap = originalLine.includes('Map<') || originalLine.includes('HashMap') ||
+                  originalLine.includes('ConcurrentHashMap') || originalLine.includes('TreeMap');
+    const isList = originalLine.includes('List<') || originalLine.includes('ArrayList') ||
+                   originalLine.includes('LinkedList');
+    
+    // Generate appropriate cleanup code based on collection type
+    let cleanupCode: string[];
+    
+    if (isMap) {
+      cleanupCode = [
+        `${indent}// Automatic cleanup to prevent unbounded growth`,
+        `${indent}if (${collectionName}.size() > 1000) {`,
+        `${indent}    // Keep only the most recent 500 entries`,
+        `${indent}    int toRemove = ${collectionName}.size() - 500;`,
+        `${indent}    ${collectionName}.keySet().stream()`,
+        `${indent}        .limit(toRemove)`,
+        `${indent}        .forEach(${collectionName}::remove);`,
+        `${indent}    LOG.info("Cleaned up " + toRemove + " old entries from ${collectionName}");`,
+        `${indent}}`
+      ];
+    } else if (isList) {
+      cleanupCode = [
+        `${indent}// Automatic cleanup to prevent unbounded growth`,
+        `${indent}if (${collectionName}.size() > 1000) {`,
+        `${indent}    // Keep only the most recent 500 entries`,
+        `${indent}    int toRemove = ${collectionName}.size() - 500;`,
+        `${indent}    ${collectionName}.subList(0, toRemove).clear();`,
+        `${indent}    LOG.info("Cleaned up " + toRemove + " old entries from ${collectionName}");`,
+        `${indent}}`
+      ];
+    } else {
+      // Generic collection (Set or other)
+      cleanupCode = [
+        `${indent}// Automatic cleanup to prevent unbounded growth`,
+        `${indent}if (${collectionName}.size() > 1000) {`,
+        `${indent}    // Keep only the most recent 500 entries`,
+        `${indent}    int toRemove = ${collectionName}.size() - 500;`,
+        `${indent}    ${collectionName}.stream()`,
+        `${indent}        .limit(toRemove)`,
+        `${indent}        .forEach(${collectionName}::remove);`,
+        `${indent}    LOG.info("Cleaned up " + toRemove + " old entries from ${collectionName}");`,
+        `${indent}}`
+      ];
+    }
 
     lines.splice(lineIndex, 0, ...cleanupCode);
 
