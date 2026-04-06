@@ -52,6 +52,15 @@ public class MemoryLeakResource {
                 .forEach(status::remove);
             LOG.info("Cleaned up " + toRemove + " old entries from status");
         }
+        // Automatic cleanup to prevent unbounded growth
+        if (status.size() > 1000) {
+            // Keep only the most recent 500 entries
+            int toRemove = status.size() - 500;
+            status.keySet().stream()
+                .limit(toRemove)
+                .forEach(status::remove);
+            LOG.info("Cleaned up " + toRemove + " old entries from status");
+        }
         status.put("status", "UP");
         status.put("timestamp", System.currentTimeMillis());
         status.put("requestCount", requestCounter);
@@ -72,6 +81,15 @@ public class MemoryLeakResource {
         
         Map<String, Object> response = new HashMap<>();
         // TODO: Implement size limit or periodic cleanup for response
+        // Automatic cleanup to prevent unbounded growth
+        if (response.size() > 1000) {
+            // Keep only the most recent 500 entries
+            int toRemove = response.size() - 500;
+            response.keySet().stream()
+                .limit(toRemove)
+                .forEach(response::remove);
+            LOG.info("Cleaned up " + toRemove + " old entries from response");
+        }
         // Automatic cleanup to prevent unbounded growth
         if (response.size() > 1000) {
             // Keep only the most recent 500 entries
@@ -128,6 +146,15 @@ public class MemoryLeakResource {
                         .forEach(leakedData::remove);
                     LOG.info("Cleaned up " + toRemove + " old entries from leakedData");
                 }
+                // Automatic cleanup to prevent unbounded growth
+                if (leakedData.size() > 1000) {
+                    // Keep only the most recent 500 entries
+                    int toRemove = leakedData.size() - 500;
+                    leakedData.keySet().stream()
+                        .limit(toRemove)
+                        .forEach(leakedData::remove);
+                    LOG.info("Cleaned up " + toRemove + " old entries from leakedData");
+                }
                 leakedData.add(chunk);
             }
             
@@ -159,6 +186,15 @@ public class MemoryLeakResource {
                     .forEach(error::remove);
                 LOG.info("Cleaned up " + toRemove + " old entries from error");
             }
+            // Automatic cleanup to prevent unbounded growth
+            if (error.size() > 1000) {
+                // Keep only the most recent 500 entries
+                int toRemove = error.size() - 500;
+                error.keySet().stream()
+                    .limit(toRemove)
+                    .forEach(error::remove);
+                LOG.info("Cleaned up " + toRemove + " old entries from error");
+            }
             error.put("error", "OutOfMemoryError");
             error.put("message", "Heap exhausted - memory leak successful!");
             error.put("totalLeaks", LEAKED_MEMORY.size());
@@ -180,6 +216,15 @@ public class MemoryLeakResource {
         
         Map<String, Object> stats = new HashMap<>();
         // TODO: Implement size limit or periodic cleanup for stats
+        // Automatic cleanup to prevent unbounded growth
+        if (stats.size() > 1000) {
+            // Keep only the most recent 500 entries
+            int toRemove = stats.size() - 500;
+            stats.keySet().stream()
+                .limit(toRemove)
+                .forEach(stats::remove);
+            LOG.info("Cleaned up " + toRemove + " old entries from stats");
+        }
         // Automatic cleanup to prevent unbounded growth
         if (stats.size() > 1000) {
             // Keep only the most recent 500 entries
