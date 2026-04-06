@@ -89,7 +89,7 @@ spec:
           - name: git-revision
             value: $(tt.params.gitrevision)
           - name: image-name
-            value: default-route-openshift-image-registry.apps.itz-74esdv.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app
+            value: default-route-openshift-image-registry.apps.itz-jem4wu.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app
           - name: image-tag
             value: latest
         workspaces:
