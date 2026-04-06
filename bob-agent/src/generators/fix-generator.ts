@@ -115,7 +115,8 @@ export class FixGenerator {
     });
 
     // Step 3: Find where items are added to the collection and add size check
-    const collectionMatch = originalLine.match(/(\w+)\s*=/);
+    // Extract collection name from the declaration line (e.g., "LEAKED_MEMORY = new")
+    const collectionMatch = originalLine.match(/(?:Map|List|Set|Collection)<[^>]+>\s+(\w+)\s*=/);
     const collectionName = collectionMatch ? collectionMatch[1] : 'LEAKED_MEMORY';
     
     // Detect collection type from declaration
