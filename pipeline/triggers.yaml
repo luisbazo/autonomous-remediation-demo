@@ -124,12 +124,11 @@ spec:
             - name: eventTypes
               value:
                 - pull_request
-                - comm
         - ref:
             name: cel
           params:
             - name: filter
-              value: "body.ref == 'refs/heads/main'"
+              value: "body.action == 'opened' && body.pull_request.base.ref == 'main'"
       bindings:
         - ref: quarkus-memory-leak-app-binding
       template:

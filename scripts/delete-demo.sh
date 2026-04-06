@@ -52,6 +52,7 @@ echo -e "${GREEN}✓ Logged into OpenShift${NC}"
 echo -e "\n${YELLOW}Deleting demo resources from namespace: $OCP_NAMESPACE${NC}"
 
 oc delete -k k8s/base -n $OCP_NAMESPACE --ignore-not-found=true || true
+oc delete -f pipeline/triggers.yaml -n $OCP_NAMESPACE --ignore-not-found=true || true
 oc delete -f pipeline/pipeline.yaml -n $OCP_NAMESPACE --ignore-not-found=true || true
 
 oc delete service bob-agent -n $OCP_NAMESPACE --ignore-not-found=true || true
