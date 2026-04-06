@@ -1,0 +1,22 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: quarkus-memory-leak-app
+  labels:
+    app: quarkus-memory-leak-app
+    app.kubernetes.io/name: quarkus-memory-leak-app
+    app.kubernetes.io/part-of: autonomous-remediation-demo
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+  - name: latest
+    from:
+      kind: DockerImage
+      name: default-route-openshift-image-registry.apps.itz-jem4wu.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app:latest
+    importPolicy:
+      scheduled: true
+    referencePolicy:
+      type: Local
+
+# Made with Bob

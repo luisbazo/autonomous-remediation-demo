@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/version: "1.0.1"
     app.kubernetes.io/component: application
     app.kubernetes.io/part-of: autonomous-remediation-demo
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"quarkus-memory-leak-app:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"quarkus-memory-leak-app\")].image"}]'
 spec:
   replicas: 1
   selector:
@@ -25,7 +27,7 @@ spec:
     spec:
       containers:
       - name: quarkus-memory-leak-app
-        image: default-route-openshift-image-registry.apps.itz-jem4wu.infra01-lb.fra02.techzone.ibm.com/demo-namespace/quarkus-memory-leak-app:latest
+        image: image-registry.openshift-image-registry.svc:5000/demo-namespace/quarkus-memory-leak-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

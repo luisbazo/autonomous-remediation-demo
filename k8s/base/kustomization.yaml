@@ -8,6 +8,7 @@ commonLabels:
   app.kubernetes.io/managed-by: kustomize
 
 resources:
+  - imagestream.yaml
   - deployment.yaml
   - service.yaml
   - route.yaml
