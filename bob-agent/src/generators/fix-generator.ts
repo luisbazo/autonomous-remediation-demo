@@ -90,28 +90,78 @@ export class FixGenerator {
     const lines = code.split('\n');
     const lineIndex = issue.line - 1;
     const originalLine = lines[lineIndex];
+    const changes: GeneratedFix['changes'] = [];
 
-    // Remove 'static' modifier from the collection declaration
+    // Step 1: Remove 'static' modifier from the collection declaration
     const fixedLine = originalLine.replace(/private\s+static\s+final/, 'private final');
-
     lines[lineIndex] = fixedLine;
+    
+    changes.push({
+      line: issue.line,
+      type: 'modify',
+      original: originalLine.trim(),
+      fixed: fixedLine.trim()
+    });
+
+    // Step 2: Add size limit constant after the collection declaration
+    const indent = originalLine.match(/^\s*/)?.[0] || '    ';
+    const sizeLimitLine = `${indent}private static final int MAX_COLLECTION_SIZE = 100; // Prevent unbounded growth`;
+    lines.splice(lineIndex + 1, 0, sizeLimitLine);
+    
+    changes.push({
+      line: issue.line + 1,
+      type: 'add',
+      fixed: sizeLimitLine.trim()
+    });
+
+    // Step 3: Find where items are added to the collection and add size check
+    const collectionMatch = originalLine.match(/(\w+)\s*=/);
+    const collectionName = collectionMatch ? collectionMatch[1] : 'LEAKED_MEMORY';
+    
+    // Find the line where .put() is called on this collection
+    for (let i = lineIndex; i < lines.length; i++) {
+      if (lines[i].includes(`${collectionName}.put(`)) {
+        const putLineIndent = lines[i].match(/^\s*/)?.[0] || '            ';
+        
+        // Add size check before the put operation
+        const sizeCheckCode = [
+          `${putLineIndent}// Implement size limit to prevent memory leak`,
+          `${putLineIndent}if (${collectionName}.size() >= MAX_COLLECTION_SIZE) {`,
+          `${putLineIndent}    // Remove oldest entry when limit reached`,
+          `${putLineIndent}    String oldestKey = ${collectionName}.keySet().iterator().next();`,
+          `${putLineIndent}    ${collectionName}.remove(oldestKey);`,
+          `${putLineIndent}    LOG.info("Removed oldest entry to maintain size limit: " + oldestKey);`,
+          `${putLineIndent}}`
+        ];
+        
+        lines.splice(i, 0, ...sizeCheckCode);
+        
+        changes.push({
+          line: i + 1,
+          type: 'add',
+          fixed: sizeCheckCode.join('\n')
+        });
+        
+        break;
+      }
+    }
 
     const explanation = `### Fixed Static Collection Memory Leak (Line ${issue.line})\n\n` +
       `**Issue:** ${issue.message}\n\n` +
-      `**Solution:** Removed the \`static\` modifier from the collection. ` +
-      `Static collections persist for the lifetime of the application and are never garbage collected. ` +
-      `By making it an instance variable, the collection can be garbage collected when the object is no longer referenced.\n\n` +
+      `**Solution Applied:**\n` +
+      `1. **Removed \`static\` modifier** - Changed from static to instance variable so the collection can be garbage collected\n` +
+      `2. **Added size limit** - Implemented MAX_COLLECTION_SIZE constant (100 entries) to prevent unbounded growth\n` +
+      `3. **Automatic cleanup** - Added code to remove oldest entries when size limit is reached\n\n` +
+      `This prevents the memory leak by:\n` +
+      `- Limiting maximum memory usage\n` +
+      `- Automatically removing old entries (FIFO pattern)\n` +
+      `- Allowing garbage collection of removed entries\n\n` +
       `**Before:**\n\`\`\`java\n${originalLine.trim()}\n\`\`\`\n\n` +
-      `**After:**\n\`\`\`java\n${fixedLine.trim()}\n\`\`\`\n\n`;
+      `**After:**\n\`\`\`java\n${fixedLine.trim()}\n${sizeLimitLine.trim()}\n// ... size check added before .put() operations\n\`\`\`\n\n`;
 
     return {
       code: lines.join('\n'),
-      changes: [{
-        line: issue.line,
-        type: 'modify',
-        original: originalLine.trim(),
-        fixed: fixedLine.trim()
-      }],
+      changes,
       explanation
     };
   }
@@ -151,32 +201,50 @@ export class FixGenerator {
     changes: GeneratedFix['changes'];
     explanation: string;
   } {
-    // Add a size limit check or cleanup method
     const lines = code.split('\n');
     const lineIndex = issue.line - 1;
     const originalLine = lines[lineIndex];
+    const changes: GeneratedFix['changes'] = [];
 
     // Extract collection name from the issue message
     const collectionMatch = issue.message.match(/Collection '(\w+)'/);
     const collectionName = collectionMatch ? collectionMatch[1] : 'collection';
 
-    const indent = originalLine.match(/^\s*/)?.[0] || '';
-    const sizeCheckComment = `${indent}// TODO: Implement size limit or periodic cleanup for ${collectionName}`;
+    const indent = originalLine.match(/^\s*/)?.[0] || '        ';
+    
+    // Add size check with automatic cleanup
+    const cleanupCode = [
+      `${indent}// Automatic cleanup to prevent unbounded growth`,
+      `${indent}if (${collectionName}.size() > 1000) {`,
+      `${indent}    // Keep only the most recent 500 entries`,
+      `${indent}    int toRemove = ${collectionName}.size() - 500;`,
+      `${indent}    ${collectionName}.keySet().stream()`,
+      `${indent}        .limit(toRemove)`,
+      `${indent}        .forEach(${collectionName}::remove);`,
+      `${indent}    LOG.info("Cleaned up " + toRemove + " old entries from ${collectionName}");`,
+      `${indent}}`
+    ];
 
-    lines.splice(lineIndex, 0, sizeCheckComment);
+    lines.splice(lineIndex, 0, ...cleanupCode);
 
-    const explanation = `### Added Cleanup Reminder (Line ${issue.line})\n\n` +
+    changes.push({
+      line: issue.line,
+      type: 'add',
+      fixed: cleanupCode.join('\n')
+    });
+
+    const explanation = `### Added Automatic Cleanup Mechanism (Line ${issue.line})\n\n` +
       `**Issue:** ${issue.message}\n\n` +
-      `**Solution:** Added a TODO comment to implement proper cleanup. ` +
-      `Consider implementing a maximum size limit or periodic cleanup mechanism.\n\n`;
+      `**Solution:** Implemented automatic cleanup that:\n` +
+      `- Monitors collection size (triggers at 1000 entries)\n` +
+      `- Removes oldest entries to maintain 500 entries\n` +
+      `- Logs cleanup operations for monitoring\n` +
+      `- Prevents unbounded memory growth\n\n` +
+      `This ensures the collection never grows beyond a reasonable size, preventing memory exhaustion.\n\n`;
 
     return {
       code: lines.join('\n'),
-      changes: [{
-        line: issue.line,
-        type: 'add',
-        fixed: sizeCheckComment.trim()
-      }],
+      changes,
       explanation
     };
   }

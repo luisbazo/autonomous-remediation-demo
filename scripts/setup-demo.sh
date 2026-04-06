@@ -115,6 +115,11 @@ oc create secret generic github-webhook-secret \
 
 echo -e "${GREEN}✓ Secrets created${NC}"
 
+# Grant image-builder permissions to service account (required for Instana native modules)
+echo -e "\n${YELLOW}Granting image-builder permissions...${NC}"
+oc policy add-role-to-user system:image-builder system:serviceaccount:$OCP_NAMESPACE:default -n $OCP_NAMESPACE
+echo -e "${GREEN}✓ Permissions granted${NC}"
+
 # Build and push Bob AI agent image
 echo -e "\n${YELLOW}Building Bob AI agent...${NC}"
 cd bob-agent

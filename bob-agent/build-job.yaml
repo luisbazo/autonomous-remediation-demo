@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bob-ai-agent-build
+  namespace: demo-namespace
+spec:
+  template:
+    spec:
+      serviceAccountName: builder
+      containers:
+      - name: buildah
+        image: quay.io/buildah/stable:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cd /workspace
+          buildah bud --format=docker --tls-verify=false -f Dockerfile -t image-registry.openshift-image-registry.svc:5000/demo-namespace/bob-ai-agent:latest .
+          buildah push --tls-verify=false image-registry.openshift-image-registry.svc:5000/demo-namespace/bob-ai-agent:latest
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+        securityContext:
+          privileged: true
+      volumes:
+      - name: workspace
+        emptyDir: {}
+      restartPolicy: Never
+  backoffLimit: 1
+
+# Made with Bob
