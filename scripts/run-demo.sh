@@ -77,7 +77,7 @@ echo -e "${BLUE}Monitoring Instana for alerts...${NC}"
 
 ALERT_DETECTED=false
 for i in {1..60}; do
-    echo -ne "${BLUE}  Checking... ($i/30)\r${NC}"
+    echo -ne "${BLUE}  Checking... ($i/60)\r${NC}"
     
     # Check if Bob agent has received an alert (check logs)
     BOB_LOGS=$(oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE --tail=50 2>/dev/null || echo "")
