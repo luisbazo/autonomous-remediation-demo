@@ -76,13 +76,13 @@ echo -e "${BLUE}This may take 2-5 minutes depending on Instana's monitoring inte
 echo -e "${BLUE}Monitoring Instana for alerts...${NC}"
 
 ALERT_DETECTED=false
-for i in {1..30}; do
+for i in {1..60}; do
     echo -ne "${BLUE}  Checking... ($i/30)\r${NC}"
     
     # Check if Bob agent has received an alert (check logs)
     BOB_LOGS=$(oc logs deployment/bob-ai-agent -n $OCP_NAMESPACE --tail=50 2>/dev/null || echo "")
     
-    if echo "$BOB_LOGS" | grep -q "Processing Instana alert"; then
+    if echo "$BOB_LOGS" | grep -q "Calling MCP tool"; then
         ALERT_DETECTED=true
         echo -e "\n${GREEN}✓ Instana alert detected and sent to Bob!${NC}"
         break
