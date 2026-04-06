@@ -123,7 +123,8 @@ spec:
                 secretKey: secret
             - name: eventTypes
               value:
-                - push
+                - pull_request
+                - comm
         - ref:
             name: cel
           params:
